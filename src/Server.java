@@ -13,34 +13,62 @@ public class Server implements Runnable {
     private ServerSocket server;
     private boolean done;
 
+    // List of cuss words
+    private List<String> cussWords;
+
+    // Emoji mappings
+    private Map<String, String> emojiMap;
+
     private ExecutorService pool;
 
     public Server(){
-        connections =new ArrayList<>();
+        connections = new ArrayList<>();
         done = false;
+
+        // Initialize cuss words
+        cussWords = Arrays.asList("fuck", "fuckyou");
+
+        // Initialize emoji mappings
+        emojiMap = new HashMap<>();
+        emojiMap.put(":)", "😊");
+        emojiMap.put(":(", "☹️");
+        emojiMap.put(":D", "😃");
+        emojiMap.put(";)","😉");
+        emojiMap.put(":P","😛");
+        emojiMap.put(":O","😮");
+        emojiMap.put(":|","😐");
+        emojiMap.put(":*","😘");
+        emojiMap.put(":s","😕");
+        emojiMap.put(":z","😴");
+        emojiMap.put(":^)","😇");
+        emojiMap.put(":-/","🤔");
+        emojiMap.put("B)","😎");
+        emojiMap.put(":sweat_smile:","😅");
+        emojiMap.put(":face_with_tears_of_joy:","😂");
+        emojiMap.put(":heart_eyes:","😍");
+        emojiMap.put(":kissing_heart:","😘");
+        emojiMap.put(":thinking_face:","🤔");
+
+        // Add more emoji mappings as needed
     }
 
 
     @Override
     public void run() {
         try {
-
             server = new ServerSocket(9999);
-
             pool = Executors.newCachedThreadPool();
             while(!done){
-                Socket client =server.accept();
+                Socket client = server.accept();
                 ConnectionHandler handler = new ConnectionHandler(client);
                 connections.add(handler);
                 pool.execute(handler);
-
             }
-
-        }catch (Exception e){
+        } catch (IOException e) {
             shutdown();
         }
-
     }
+
     public void broadcast(String message){
         for(ConnectionHandler ch:connections){
             if(ch != null){
@@ -48,6 +76,7 @@ public class Server implements Runnable {
             }
         }
     }
+
     public void shutdown(){
         try {
             done = true;
@@ -58,75 +87,78 @@ public class Server implements Runnable {
             for (ConnectionHandler ch : connections){
                 ch.shutdown();
             }
-        }catch (IOException e){
+        } catch (IOException e) {
             // Ignore
         }
     }
 
-    class ConnectionHandler implements Runnable{
+    class ConnectionHandler implements Runnable {
         private Socket client;
         private BufferedReader in;
         private PrintWriter out;
         private String nickname;
 
-        public  ConnectionHandler(Socket client){
-
+        public ConnectionHandler(Socket client) {
             this.client = client;
         }
+
         @Override
-        public void run(){
-            try{
-                out=new PrintWriter(client.getOutputStream(),true);
+        public void run() {
+            try {
+                out = new PrintWriter(client.getOutputStream(), true);
                 in = new BufferedReader(new InputStreamReader(client.getInputStream()));
                 out.println("Please enter a nickname: ");
                 nickname = in.readLine();
-                System.out.println(nickname +" connected");
-                broadcast(nickname+ " joinded the chat");
+                System.out.println(nickname + " connected");
+                broadcast(nickname + " joined the chat");
                 String message;
-                while((message=in.readLine()) != null){
-                    if(message.startsWith("/nick")){
-                        String[] messageSplit=message.split(" ",2);
-                        if(messageSplit.length == 2){
-                            broadcast(nickname + " renamed themselves to "+messageSplit[1]);
-                            System.out.println(nickname +" renamed themselves to "+messageSplit[1]);
+                while ((message = in.readLine()) != null) {
+                    // Replace cuss words with stars
+                    for (String cussWord : cussWords) {
+                        message = message.replaceAll("\\b" + cussWord + "\\b", "*".repeat(cussWord.length()));
+                    }
+
+                    // Replace text representations with emojis
+                    for (Map.Entry<String, String> entry : emojiMap.entrySet()) {
+                        message = message.replace(entry.getKey(), entry.getValue());
+                    }
+
+                    if (message.startsWith("/nick")) {
+                        String[] messageSplit = message.split(" ", 2);
+                        if (messageSplit.length == 2) {
+                            broadcast(nickname + " renamed themselves to " + messageSplit[1]);
+                            System.out.println(nickname + " renamed themselves to " + messageSplit[1]);
 
                             nickname = messageSplit[1];
-                            out.println("Sucessfully changed nickname to "+nickname);
-
-
-
-                        }else{
-                            out.println("NO nickname provided");
+                            out.println("Successfully changed nickname to " + nickname);
+                        } else {
+                            out.println("No nickname provided");
                         }
-                    }else if(message.startsWith("/quit")){
-                        broadcast(nickname +" left the chat");
+                    } else if (message.startsWith("/quit")) {
+                        broadcast(nickname + " left the chat");
                         shutdown();
-
-                    }else{
-                        broadcast(nickname+": "+message);
+                    } else {
+                        broadcast(nickname + ": " + message);
                     }
                 }
-
-
-
-            }catch (IOException e){
+            } catch (IOException e) {
                 shutdown();
-
             }
-
         }
-        public void sendMessage(String message){
+
+        public void sendMessage(String message) {
             out.println(message);
         }
-        public void shutdown(){
-            try{
+
+        public void shutdown() {
+            try {
                 in.close();
                 out.close();
-                if(!client.isClosed()){
+                if (!client.isClosed()) {
                     client.close();
                 }
-            }catch(IOException e){
-                //ignore
+            } catch (IOException e) {
+                // Ignore
             }
         }
     }
