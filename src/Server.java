@@ -26,7 +26,7 @@ public class Server implements Runnable {
         done = false;
 
         // Initialize cuss words
-        cussWords = Arrays.asList("fuck", "fuckyou");
+        cussWords = Arrays.asList("idiot", "fool");
 
         // Initialize emoji mappings
         emojiMap = new HashMap<>();
